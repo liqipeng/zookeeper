@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="ZooKeeperMain" type="Application" factoryName="Application" nameIsGenerated="true">
+    <option name="INCLUDE_PROVIDED_SCOPE" value="true" />
+    <option name="MAIN_CLASS_NAME" value="org.apache.zookeeper.ZooKeeperMain" />
+    <module name="zookeeper" />
+    <option name="PROGRAM_PARAMETERS" value="-server 127.0.0.1:2181 ls /" />
+    <option name="VM_PARAMETERS" value="-Dlog4j.configuration=file:conf/log4j.properties" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="org.apache.zookeeper.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

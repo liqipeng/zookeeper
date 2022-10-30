@@ -135,14 +135,25 @@ abstract class ClientCnxnSocket {
             }
         }
 
+        // 解析 jute 协议包
         ByteBufferInputStream bbis = new ByteBufferInputStream(incomingBuffer);
         BinaryInputArchive bbia = BinaryInputArchive.getArchive(bbis);
         ConnectResponse conRsp = new ConnectResponse();
+        // 这里传入deserialize方法的tag参数用于帮助代码层面标记字段，即理解当前读写的是哪个字段
+        // 可以看到实际实现的 org.apache.jute.BinaryInputArchive.readXxx 并没有用到 tag 字段
+        // ConnectResponse.deserialize 实现如下：
+        //     protocolVersion=a_.readInt("protocolVersion");
+        //    timeOut=a_.readInt("timeOut");
+        //    sessionId=a_.readLong("sessionId");
+        //    passwd=a_.readBuffer("passwd");
         conRsp.deserialize(bbia, "connect");
 
         // read "is read-only" flag
         boolean isRO = false;
         try {
+            // 这里读取的 readOnly 字段为什么没有直接定义在 ConnectResponse 实体对象里呢？
+            // 因为 readOnly 是一个老版本的服务端不存在的字段，所以不能直接定义在 jute 协议处理的字段里
+            // 相当于是一个可选字段的处理，由此可见 jute 协议是不支持可选字段类型的
             isRO = bbia.readBool("readOnly");
         } catch (IOException e) {
             // this is ok -- just a packet from an old server which

@@ -1039,6 +1039,10 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             BinaryOutputArchive bos = BinaryOutputArchive.getArchive(baos);
             bos.writeInt(-1, "len");
             rsp.serialize(bos, "connect");
+            // 如果不是老的客户端，则多返回一个 bool 类型的 readOnly 字段
+            // 如何判断 isOldClient ，见 processConnectRequest 方法
+            // 即如果客户端建立连接的请求带有 readOnly 字段则设定 cnxn.isOldClient = false
+            // isOldClient 默认值是 true
             if (!cnxn.isOldClient) {
                 bos.writeBool(this instanceof ReadOnlyZooKeeperServer, "readOnly");
             }
@@ -1142,6 +1146,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                     incInProcess();
                 }
             } else {
+                // 如果接收到一个不支持的请求类型，则交给 UnimplementedRequestProcessor 处理结束 Session
                 LOG.warn("Received packet at server of unknown type {}", si.type);
                 // Update request accounting/throttling limits
                 requestFinished(si);
@@ -1353,6 +1358,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             cnxn.getRemoteSocketAddress(),
             Long.toHexString(connReq.getLastZxidSeen()));
 
+        // 检查限流
         long sessionId = connReq.getSessionId();
         int tokensNeeded = 1;
         if (connThrottle.isConnectionWeightEnabled()) {
@@ -1402,6 +1408,11 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             LOG.info(msg);
             throw new CloseRequestException(msg, ServerCnxn.DisconnectReason.NOT_READ_ONLY_CLIENT);
         }
+
+        // Session 的超时时间的协商：客户端指定的会话超时时间不能超过服务端设置的min~max边界
+        // minSessionTimeout, maxSessionTimeout 默认为 2~20 个 tick 范围内
+        // 默认tick时间是 3000 ms
+        // 什么是 tick 时间：是指服务端之间或者服务端与客户端之间维持心跳的时间间隔
         int sessionTimeout = connReq.getTimeOut();
         byte[] passwd = connReq.getPasswd();
         int minSessionTimeout = getMinSessionTimeout();
@@ -1413,6 +1424,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             sessionTimeout = maxSessionTimeout;
         }
         cnxn.setSessionTimeout(sessionTimeout);
+
+
         // We don't want to receive any packets until we are sure that the
         // session is setup
         cnxn.disableRecv();

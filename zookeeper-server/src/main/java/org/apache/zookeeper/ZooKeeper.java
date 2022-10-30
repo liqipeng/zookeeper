@@ -1009,13 +1009,23 @@ public class ZooKeeper implements AutoCloseable {
             sessionTimeout,
             watcher);
 
+        // clientConfig 存储 zookeeper 客户端配置信息
+        // TODO: 详细分析 ZKClientConfig解析
         if (clientConfig == null) {
             clientConfig = new ZKClientConfig();
         }
         this.clientConfig = clientConfig;
+
+        // 创建客户端的 Watch 管理器
         watchManager = defaultWatchManager();
         watchManager.defaultWatcher = watcher;
+
+        // 创建连接串解析器
+        // 连接串格式：{ip1}[:{port1}],{ip2}[:{port2}][{chrootPath}]
+        // 连接串样例：192.168.1.100:2181,192.168.1.101:2181/it/is/a/chroot
         ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
+
+
         hostProvider = aHostProvider;
 
         cnxn = createConnection(

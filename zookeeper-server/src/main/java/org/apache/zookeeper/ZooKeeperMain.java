@@ -204,12 +204,26 @@ public class ZooKeeperMain {
          * @return true if parsing succeeded, false otherwise.
          */
         public boolean parseOptions(String[] args) {
+            // 参数解析样例：
+            // 参数 -client-configuration client-conf.properties -ww "xxx Xxx" yy zz "(aa) \"aa\""
+            // （ 说明：1.如果参数带空格，则使用“双引号引起来，例："xxx Xxx" 2.如果值带引号，则使用 \"，例："(aa) \"aa\"" ）
+            // 解析后 [
+            //  "-client-configuration",
+            //  "client-conf.properties",
+            //  "-ww",
+            //  "xxx Xxx",
+            //  "yy",
+            //  "zz",
+            //  "(aa) \"aa\""
+            //]
+
             List<String> argList = Arrays.asList(args);
             Iterator<String> it = argList.iterator();
 
             while (it.hasNext()) {
                 String opt = it.next();
                 try {
+                    // 如果参数是这几个，则取 it.next() 作为对应的值或者选项存在则值为 true
                     if (opt.equals("-server")) {
                         options.put("server", it.next());
                     } else if (opt.equals("-timeout")) {
@@ -226,6 +240,8 @@ public class ZooKeeperMain {
                     return false;
                 }
 
+                // 如果参数不是 - 开头的，则属于开始解析命令了
+                // 所以前面的 options 一定是放在命令的后面的
                 if (!opt.startsWith("-")) {
                     command = opt;
                     cmdArgs = new ArrayList<String>();
@@ -235,6 +251,21 @@ public class ZooKeeperMain {
                     }
                     return true;
                 }
+
+                // （解析示例）
+                // -server 127.0.0.1:2181 -client-configuration client-conf.properties -timeout 60000 -r cmd1 arg1 arg2
+                // options: {
+                //   "server": "127.0.0.1:2181",
+                //   "readonly": "true",
+                //   "timeout": "60000",
+                //   "client-configuration": "client-conf.properties"
+                // }
+                // command: cmd1
+                // cmdArgs: [
+                //   "cmd1",
+                //   "arg1",
+                //   "arg2"
+                // ]
             }
             return true;
         }
@@ -291,6 +322,7 @@ public class ZooKeeperMain {
     }
 
     protected void connectToZK(String newHost) throws InterruptedException, IOException {
+        // 如果 ZooKeeper 客户端已存在且状态为 alive，则关闭
         if (zk != null && zk.getState().isAlive()) {
             zk.close();
         }
@@ -316,9 +348,18 @@ public class ZooKeeperMain {
         if (cl.getOption("waitforconnection") != null) {
             connectLatch = new CountDownLatch(1);
         }
+        // timeout是连接服务器端完成客户端初始化的超时时间
         int timeout = Integer.parseInt(cl.getOption("timeout"));
+
+        // 创建 zk 的客户端对象 ZooKeeperAdmin
+        // ZooKeeperAdmin继承了ZooKeeper，增加了 reconfigure 功能
+        // reconfigure功能是通过命令来管理集群，比如增加节点、减少节点、变更配置等
         zk = new ZooKeeperAdmin(host, timeout, new MyWatcher(), readOnly, clientConfig);
+
+        // 如果配置了 waitforconnection 参数，则进行阻塞等待客户端启动完成
         if (connectLatch != null) {
+            // 通过CountDownLatch.await进行阻塞等待 timeout 的时长
+            // 如果超时了，则调用close先进行关闭
             if (!connectLatch.await(timeout, TimeUnit.MILLISECONDS)) {
                 zk.close();
                 throw new IOException(KeeperException.create(KeeperException.Code.CONNECTIONLOSS));
@@ -329,11 +370,20 @@ public class ZooKeeperMain {
 
     public static void main(String[] args) throws IOException, InterruptedException {
         ZooKeeperMain main = new ZooKeeperMain(args);
+
         main.run();
     }
 
     public ZooKeeperMain(String[] args) throws IOException, InterruptedException {
         cl.parseOptions(args);
+        // cl: {
+        //  "options": {
+        //    "server": "localhost:2181",
+        //    "timeout": "30000"
+        //  },
+        //  "cmdArgs": null,
+        //  "command": null
+        // }
         System.out.println("Connecting to " + cl.getOption("server"));
         connectToZK(cl.getOption("server"));
     }
@@ -381,6 +431,7 @@ public class ZooKeeperMain {
 
                 String line;
                 while ((line = br.readLine()) != null) {
+                    // 根据检测到的行来执行具体的命令
                     executeLine(line);
                 }
             }
@@ -393,9 +444,18 @@ public class ZooKeeperMain {
 
     public void executeLine(String line) throws InterruptedException, IOException {
         if (!line.equals("")) {
+            // 解析出命令和参数：{command} {cmdArgs}
+            // cmdArgs是List<String>
             cl.parseCommand(line);
+
+            // 添加命令到历史记录里
+            // HashMap<Integer, String> history
             addToHistory(commandCount, line);
+
+            // 执行命令
             processCmd(cl);
+
+            // 执行的命令的数量增加1
             commandCount++;
         }
     }
@@ -403,6 +463,7 @@ public class ZooKeeperMain {
     protected boolean processCmd(MyCommandOptions co) throws IOException, InterruptedException {
         boolean watch = false;
         try {
+            // 执行命令，返回值表示当前命令执行是否添加了watch
             watch = processZKCmd(co);
             exitCode = ExitCode.EXECUTION_FINISHED.getValue();
         } catch (CliException ex) {

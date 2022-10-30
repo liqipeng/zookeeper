@@ -48,6 +48,9 @@ public class ZKClientConfig extends ZKConfig {
      * automatically reset watches during session reconnect, this option allows
      * the client to turn off this behavior by setting the property
      * "zookeeper.disableAutoWatchReset" to "true"
+     *
+     * TODO: 重置watch意味着什么呢？是重新watch还是丢弃watch?
+     *
      */
     public static final String DISABLE_AUTO_WATCH_RESET = "zookeeper.disableAutoWatchReset";
     @SuppressWarnings("deprecation")

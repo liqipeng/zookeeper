@@ -880,11 +880,13 @@ public class ClientCnxn {
         private boolean isFirstConnect = true;
 
         void readResponse(ByteBuffer incomingBuffer) throws IOException {
+            // 1. jute 协议解析解析响应头 ReplyHeader
             ByteBufferInputStream bbis = new ByteBufferInputStream(incomingBuffer);
             BinaryInputArchive bbia = BinaryInputArchive.getArchive(bbis);
             ReplyHeader replyHdr = new ReplyHeader();
-
             replyHdr.deserialize(bbia, "header");
+
+            // 2. 几个特殊的 xid 处理
             switch (replyHdr.getXid()) {
             case PING_XID:
                 LOG.debug("Got ping response for session id: 0x{} after {}ms.",
@@ -937,6 +939,8 @@ public class ClientCnxn {
                 return;
             }
 
+            // 3. 取出 pending 队列里的第一个
+            // （既然收到了响应，pendind队列应该有待处理的 Packet。如果没有收到，则抛出IO异常）
             Packet packet;
             synchronized (pendingQueue) {
                 if (pendingQueue.size() == 0) {
@@ -944,11 +948,15 @@ public class ClientCnxn {
                 }
                 packet = pendingQueue.remove();
             }
+
+            // 4. 处理请求Packet对应的响应
             /*
              * Since requests are processed in order, we better get a response
              * to the first request!
+             * 请求是按顺序处理的，我们得到的最新的响应应该是与最前面的请求是相对应的
              */
             try {
+                // 如果请求的xid与响应的xid不匹配，则抛出IO异常
                 if (packet.requestHeader.getXid() != replyHdr.getXid()) {
                     packet.replyHeader.setErr(KeeperException.Code.CONNECTIONLOSS.intValue());
                     throw new IOException("Xid out of order. Got Xid " + replyHdr.getXid()
@@ -957,13 +965,16 @@ public class ClientCnxn {
                                           + " for a packet with details: " + packet);
                 }
 
+                // 把响应头里的 xid err zxid 设置到 packet.replyHeader 上
                 packet.replyHeader.setXid(replyHdr.getXid());
                 packet.replyHeader.setErr(replyHdr.getErr());
                 packet.replyHeader.setZxid(replyHdr.getZxid());
                 if (replyHdr.getZxid() > 0) {
+                    // 更新 lastZxid
                     lastZxid = replyHdr.getZxid();
                 }
                 if (packet.response != null && replyHdr.getErr() == 0) {
+                    // 如果响应的 err == 0 则解析响应的数据包
                     packet.response.deserialize(bbia, "response");
                 }
 
