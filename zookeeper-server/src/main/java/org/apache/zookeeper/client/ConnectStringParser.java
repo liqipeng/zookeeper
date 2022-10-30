@@ -50,6 +50,11 @@ public final class ConnectStringParser {
      *             for an invalid chroot path.
      */
     public ConnectStringParser(String connectString) {
+        // 连接串的格式为：{ip1}[:{port1}],{ip2}[:{port2}][{chrootPath}]
+        // 其中端口、chrootPath是可选的
+        // 端口如未指定，则取 2181
+        // chrootPath如未指定，则取 null
+
         // parse out chroot, if any
         int off = connectString.indexOf('/');
         if (off >= 0) {

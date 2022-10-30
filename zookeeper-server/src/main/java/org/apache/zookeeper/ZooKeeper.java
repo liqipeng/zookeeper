@@ -1018,6 +1018,8 @@ public class ZooKeeper implements AutoCloseable {
 
         // 创建客户端的 Watch 管理器
         watchManager = defaultWatchManager();
+
+        // 设置客户端的默认 Watcher
         watchManager.defaultWatcher = watcher;
 
         // 创建连接串解析器
@@ -1025,9 +1027,11 @@ public class ZooKeeper implements AutoCloseable {
         // 连接串样例：192.168.1.100:2181,192.168.1.101:2181/it/is/a/chroot
         ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
 
-
+        // hostProvider用于提供客户端的地址管理，连接串可能提供了多个地址（或域名可以解析到多个ip），它帮助进行地址管理
         hostProvider = aHostProvider;
 
+        // 创建客户端连接对象
+        // 此处创建时没有传入密码，密码用 new byte[16] 替代
         cnxn = createConnection(
             connectStringParser.getChrootPath(),
             hostProvider,
@@ -1036,6 +1040,7 @@ public class ZooKeeper implements AutoCloseable {
             watchManager,
             getClientCnxnSocket(),
             canBeReadOnly);
+        // 启动客户端相关的线程
         cnxn.start();
     }
 

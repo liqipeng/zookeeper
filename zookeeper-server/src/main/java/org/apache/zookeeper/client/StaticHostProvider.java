@@ -137,15 +137,21 @@ public final class StaticHostProvider implements HostProvider {
 
     private InetSocketAddress resolve(InetSocketAddress address) {
         try {
+            // 从address（ip+port）获取到host
+            // 比如输入 127.0.0.1:2181 返回 127.0.0.1
             String curHostString = address.getHostString();
+            // 对 host 进行域名解析得到所有的地址，resolvedAddresses应该都已经是IP地址（而不是域名）
             List<InetAddress> resolvedAddresses = new ArrayList<>(Arrays.asList(this.resolver.getAllByName(curHostString)));
             if (resolvedAddresses.isEmpty()) {
                 return address;
             }
+            // 对返回的集合进行随机打乱
             Collections.shuffle(resolvedAddresses);
+            // 取打乱后的第一个IP + 原端口 = 组装一个 InetSocketAddress
             return new InetSocketAddress(resolvedAddresses.get(0), address.getPort());
         } catch (UnknownHostException e) {
             LOG.error("Unable to resolve address: {}", address.toString(), e);
+            // 如解析域名失败，则返回原 InetSocketAddress
             return address;
         }
     }
@@ -336,24 +342,34 @@ public final class StaticHostProvider implements HostProvider {
         InetSocketAddress addr;
 
         synchronized (this) {
+            // reconfigMode:
+            // The following fields are used to migrate clients during reconfiguration
+            // reconfigMode 是用于在服务端进行 reconfiguration 时进行客户端迁移的用途
             if (reconfigMode) {
-                addr = nextHostInReconfigMode();
+                addr = nextHostInReconfigMode(); // TODO: nextHostInReconfigMode
                 if (addr != null) {
                     currentIndex = serverAddresses.indexOf(addr);
                     return resolve(addr);
                 }
                 //tried all servers and couldn't connect
                 reconfigMode = false;
+                // 如果是 reconfigMode 并且 spinDelay > 0，则需要sleep
                 needToSleep = (spinDelay > 0);
             }
+            // 每次调用，游标往后移动1
             ++currentIndex;
             if (currentIndex == serverAddresses.size()) {
+                // 如果currentIndex索引已经与地址数相同，则说明超出范围，重置为0
                 currentIndex = 0;
             }
+            // 按索引从列表获得一个地址
             addr = serverAddresses.get(currentIndex);
             needToSleep = needToSleep || (currentIndex == lastIndex && spinDelay > 0);
-            if (lastIndex == -1) {
+            if (lastIndex == -1) { // lastIndex的初始值是-1
                 // We don't want to sleep on the first ever connect attempt.
+                // 设置lastIndex为0
+                // 如果一开始lastIndex就设置成0而不是-1那么会导致第一次连接时候needToSleep就是true，这样显然不合适
+                // 走到这里needToSleep的判断已经完成，所以再设置为0是合适的。
                 lastIndex = 0;
             }
         }
@@ -365,10 +381,21 @@ public final class StaticHostProvider implements HostProvider {
             }
         }
 
+        // 进行域名解析处理：如果域名有多个ip则随机取1个。
+        // 总之，（如果没有遇到域名解析失败）这里返回的是ip:port，而不再是域名了。
         return resolve(addr);
     }
 
     public synchronized void onConnected() {
+        // onConnected:390, StaticHostProvider (org.apache.zookeeper.client)
+        // onConnected:1457, ClientCnxn$SendThread (org.apache.zookeeper)
+        // readConnectResult:165, ClientCnxnSocket (org.apache.zookeeper) <-- 已处理了ConnectRequest的响应
+        // doIO:86, ClientCnxnSocketNIO (org.apache.zookeeper)
+        // doTransport:350, ClientCnxnSocketNIO (org.apache.zookeeper)
+        // run:1304, ClientCnxn$SendThread (org.apache.zookeeper)
+
+        // 可以看到 onConnected 时，已经完成了 ConnectRequest 的响应处理
+
         lastIndex = currentIndex;
         reconfigMode = false;
     }

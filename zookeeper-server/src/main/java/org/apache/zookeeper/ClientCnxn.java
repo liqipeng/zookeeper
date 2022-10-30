@@ -144,11 +144,13 @@ public class ClientCnxn {
 
     /**
      * These are the packets that have been sent and are waiting for a response.
+     * pendingQueue 存放已经发出、等待服务端响应的 Packet
      */
     private final Queue<Packet> pendingQueue = new ArrayDeque<>();
 
     /**
      * These are the packets that need to be sent.
+     * outgoingQueue 存放的是待发送的 Packet
      */
     private final LinkedBlockingDeque<Packet> outgoingQueue = new LinkedBlockingDeque<Packet>();
 
@@ -159,6 +161,8 @@ public class ClientCnxn {
      * "real" timeout, not the timeout request by the client (which may have
      * been increased/decreased by the server which applies bounds to this
      * value.
+     * 这个是客户端与服务端已经协商好的session超时时间
+     * （这个值可能根据服务端的限制进行调整，必须在服务端指定的范围内）
      */
     private volatile int negotiatedSessionTimeout;
 
@@ -184,8 +188,14 @@ public class ClientCnxn {
 
     final String chrootPath;
 
+    /**
+     * 客户端处理IO的线程
+     */
     final SendThread sendThread;
 
+    /**
+     * 客户端处理 Watcher事件的线程
+     */
     final EventThread eventThread;
 
     /**
@@ -438,7 +448,10 @@ public class ClientCnxn {
         this.hostProvider = hostProvider;
         this.chrootPath = chrootPath;
 
+        // 连接超时时间为 session超时时间/host数量
+        // 默认 session 超时时间为：30000ms，即30秒
         connectTimeout = sessionTimeout / hostProvider.size();
+        // 读超时时间为会话超时时间的 2/3，即默认为20秒
         readTimeout = sessionTimeout * 2 / 3;
         readOnly = canBeReadOnly;
 
@@ -1551,6 +1564,7 @@ public class ClientCnxn {
 
     // @VisibleForTesting
     protected int xid = 1;
+    // 客户端层面的事务编号，用于维护客户端处理的有序性
 
     // @VisibleForTesting
     volatile States state = States.NOT_CONNECTED;
