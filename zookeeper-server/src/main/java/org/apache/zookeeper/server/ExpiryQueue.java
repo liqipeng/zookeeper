@@ -34,7 +34,10 @@ import org.apache.zookeeper.common.Time;
  */
 public class ExpiryQueue<E> {
 
+    // elemMap的key是Session对象，value是所在的桶的时间戳
     private final ConcurrentHashMap<E, Long> elemMap = new ConcurrentHashMap<E, Long>();
+    
+    // expiryMap的key是桶的时间戳，value是session的集合
     /**
      * The maximum number of buckets is equal to max timeout/expirationInterval,
      * so the expirationInterval should not be too small compared to the
@@ -82,15 +85,24 @@ public class ExpiryQueue<E> {
      *                 changed, or null if unchanged
      */
     public Long update(E elem, int timeout) {
+        // 1、获取到 session 当前的过期时间
         Long prevExpiryTime = elemMap.get(elem);
         long now = Time.currentElapsedTime();
+        // 2、计算下一个过期时间：
+        //   newExpiryTime = ((now + timeout) / expirationInterval + 1) * expirationInterval
+        //   ( 对于SessionTrackerImpl里的ExpiryQueue，
+        //     expirationInterval 默认值是tickTime，即2秒，
+        //     timeout就是sessionTimeout
+        //   )
         Long newExpiryTime = roundToNextInterval(now + timeout);
 
+        // 3、如果session的过期时间与下一个过期时间相同，则返回null，表示没有变化、不需要更新
         if (newExpiryTime.equals(prevExpiryTime)) {
             // No change, so nothing to update
             return null;
         }
 
+        // 4、将session加入到新的桶（即一个Set）中
         // First add the elem to the new expiry time bucket in expiryMap.
         Set<E> set = expiryMap.get(newExpiryTime);
         if (set == null) {
@@ -105,6 +117,8 @@ public class ExpiryQueue<E> {
         }
         set.add(elem);
 
+        // 5、从前一个桶中移除这个session
+        // (存在并发场景，所以这里多了一些逻辑处理并发)
         // Map the elem to the new expiry time. If a different previous
         // mapping was present, clean up the previous expiry bucket.
         prevExpiryTime = elemMap.put(elem, newExpiryTime);

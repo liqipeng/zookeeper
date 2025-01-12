@@ -1311,6 +1311,9 @@ public class ClientCnxn {
                         to = Math.min(to, pingRwTimeout - idlePingRwServer);
                     }
 
+                    // 如果session过期，doTransport会抛出 SessionExpiredException
+                    // 抛出异常前会先 changeZkState(States.CLOSED)
+                    // 见：org.apache.zookeeper.ClientCnxn.SendThread.onConnected
                     clientCnxnSocket.doTransport(to, pendingQueue, ClientCnxn.this);
                 } catch (Throwable e) {
                     if (closing) {

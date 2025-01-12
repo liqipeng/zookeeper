@@ -162,6 +162,9 @@ abstract class ClientCnxnSocket {
         }
 
         this.sessionId = conRsp.getSessionId();
+        
+        // 如果session已经失效，则conRsp.getTimeOut()是0
+        // 参考：org.apache.zookeeper.server.ZooKeeperServer.finishSessionInit
         sendThread.onConnected(conRsp.getTimeOut(), this.sessionId, conRsp.getPasswd(), isRO);
     }
 
