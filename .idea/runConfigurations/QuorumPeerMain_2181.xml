@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="QuorumPeerMain_2181" type="Application" factoryName="Application">
+    <option name="INCLUDE_PROVIDED_SCOPE" value="true" />
+    <option name="MAIN_CLASS_NAME" value="org.apache.zookeeper.server.quorum.QuorumPeerMain" />
+    <module name="zookeeper" />
+    <option name="PROGRAM_PARAMETERS" value="./conf/zoo_quorum.cfg" />
+    <option name="VM_PARAMETERS" value="-Dfile.encoding=UTF-8 -Dlog4j.configuration=file:./conf/log4j.properties -Dzookeeper.log.dir=./quorum/runtime_logs -Daudit.logger=CONSOLE -Dzookeeper.root.logger=INFO,CONSOLE -Dzookeeper.audit.enable=true -Dzookeeper.admin.enableServer=false -Dzookeeper.admin.serverAddress=127.0.0.1 -Dzookeeper.admin.serverPort=12181 -DclientPort=2181 -Dmyid=1" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="org.apache.zookeeper.server.quorum.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

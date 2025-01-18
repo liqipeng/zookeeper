@@ -277,6 +277,12 @@ public class QuorumPeerConfig {
      * @throws ConfigException
      */
     public void parseProperties(Properties zkProp) throws IOException, ConfigException {
+        zkProp.put("dataDir", zkProp.getProperty("dataDir") + "/" + System.getProperty("clientPort"));
+        zkProp.put("dataLogDir", zkProp.getProperty("dataLogDir") + "/" + System.getProperty("clientPort"));
+        if ("(clientPort)".equals(zkProp.getProperty("clientPort"))) {
+            zkProp.put("clientPort", System.getProperty("clientPort"));
+        }
+        
         int clientPort = 0;
         int secureClientPort = 0;
         int observerMasterPort = 0;
@@ -742,6 +748,7 @@ public class QuorumPeerConfig {
     }
 
     private void setupMyId() throws IOException {
+        /**
         File myIdFile = new File(dataDir, "myid");
         // standalone server doesn't need myid file.
         if (!myIdFile.isFile()) {
@@ -754,6 +761,8 @@ public class QuorumPeerConfig {
         } finally {
             br.close();
         }
+        **/
+        String myIdString = System.getProperty("myid");
         try {
             serverId = Long.parseLong(myIdString);
             MDC.put("myid", myIdString);
